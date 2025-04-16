@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>המשחק - כביש</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .road {
+            width: 600px;
+            height: 600px;
+            background-color: #444;
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .lane {
+            position: absolute;
+            width: 33.33%;
+            height: 100%;
+            top: 0;
+        }
+
+        .lane::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 10px;
+            background-color: white;
+            margin-left: -5px;
+        }
+
+        #playerCar {
+            width: 50px;
+            height: 100px;
+            background-color: #ff0000;
+            position: absolute;
+            bottom: 0;
+            left: 275px;
+            border-radius: 10px;
+        }
+
+        .car {
+            width: 50px;
+            height: 100px;
+            background-color: blue;
+            position: absolute;
+            border-radius: 10px;
+        }
+
+        .motorcycle {
+            width: 30px;
+            height: 60px;
+            background-color: yellow;
+            position: absolute;
+            border-radius: 5px;
+        }
+
+        #damageLabel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 20px;
+            color: black;
+            font-weight: bold;
+        }
+
+        /* ✅ חדש: עיצוב לניקוד */
+        #scoreLabel {
+            position: fixed;
+            top: 20px;
+            left: 150px;
+            font-size: 20px;
+            color: black;
+            font-weight: bold;
+        }
+
+        .damageEffect {
+            background-color: #ff6666 !important;
+        }
+
+        .invincible {
+            background-color: #00ff00 !important;
+            opacity: 0.7;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .button {
+            width: 50px;
+            height: 50px;
+            margin: 0 10px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 20px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+        }
+
+        .coin {
+            width: 20px;
+            height: 20px;
+            background-color: gold;
+            border-radius: 50%;
+            position: absolute;
+            top: -20px;
+            z-index: 2;
+            box-shadow: 0 0 5px #ff0;
+        }
+    </style>
+</head>
+<body>
+    <div class="road">
+        <div class="lane" style="left: 0;"></div>
+        <div class="lane" style="left: 33.33%;"></div>
+        <div class="lane" style="left: 66.66%;"></div>
+
+        <div id="playerCar"></div>
+        <div id="damageLabel">נזק: 0</div>
+        <!-- ✅ חדש: תיבת ניקוד -->
+        <div id="scoreLabel">ניקוד: 0</div>
+    </div>
+
+    <div class="buttons">
+        <div class="button" id="leftButton">←</div>
+        <div class="button" id="rightButton">→</div>
+    </div>
+
+    <script>
+        const playerCar = document.getElementById('playerCar');
+        const damageLabel = document.getElementById('damageLabel');
+        const scoreLabel = document.getElementById('scoreLabel'); // ✅
+        const road = document.querySelector('.road');
+        const roadWidth = road.offsetWidth;
+        const roadHeight = road.offsetHeight;
+        let playerDamage = 0;
+        let playerScore = 0; // ✅ חדש
+        let isInvincible = false;
+        let invincibleTimeout;
+
+        const lanes = [
+            { left: 0 },
+            { left: 33.33 },
+            { left: 66.66 },
+        ];
+
+        function updateScoreLabel() { // ✅
+            scoreLabel.innerText = `ניקוד: ${playerScore}`;
+        }
+
+        function spawnCar(laneIndex) {
+            const lane = lanes[laneIndex];
+            const car = document.createElement('div');
+            car.classList.add('car', 'obstacle');
+            car.style.left = `${lane.left}%`;
+            car.style.top = '-100px';
+            road.appendChild(car);
+        }
+
+        function spawnMotorcycle(laneIndex) {
+            const lane = lanes[laneIndex];
+            const motorcycle = document.createElement('div');
+            motorcycle.classList.add('motorcycle', 'obstacle');
+            motorcycle.style.left = `${lane.left + 5}%`;
+            motorcycle.style.top = '-60px';
+            road.appendChild(motorcycle);
+        }
+
+        function spawnCoin() {
+            const coin = document.createElement('div');
+            coin.classList.add('coin');
+            const laneIndex = Math.floor(Math.random() * 3);
+            coin.style.left = `${lanes[laneIndex].left + 10}%`;
+            road.appendChild(coin);
+        }
+
+        function checkCollision(a, b) {
+            const rect1 = a.getBoundingClientRect();
+            const rect2 = b.getBoundingClientRect();
+            return !(
+                rect1.right < rect2.left ||
+                rect1.left > rect2.right ||
+                rect1.bottom < rect2.top ||
+                rect1.top > rect2.bottom
+            );
+        }
+
+        function triggerDamageEffect() {
+            playerCar.classList.add('damageEffect');
+            setTimeout(() => {
+                playerCar.classList.remove('damageEffect');
+            }, 200);
+        }
+
+        function updateDamageLabel() {
+            damageLabel.innerText = `נזק: ${playerDamage}`;
+        }
+
+        function activateInvincibility() {
+            isInvincible = true;
+            playerCar.classList.add('invincible');
+            clearTimeout(invincibleTimeout);
+            invincibleTimeout = setTimeout(() => {
+                isInvincible = false;
+                playerCar.classList.remove('invincible');
+            }, 2000);
+        }
+
+        function findOffsetInRoad(road, car) {
+            const elementRect = car.getBoundingClientRect();
+            const parentRect = road.getBoundingClientRect();
+            return elementRect.left - parentRect.left;
+        }
+
+        const moveCar = (direction) => {
+            const carWidth = playerCar.offsetWidth;
+            const maxX = roadWidth - carWidth;
+            let currentX = parseInt(findOffsetInRoad(road, playerCar));
+            if (direction === 'left') currentX -= 5;
+            else if (direction === 'right') currentX += 5;
+            if (currentX < 0) currentX = 0;
+            if (currentX > maxX) currentX = maxX;
+            playerCar.style.left = `${currentX}px`;
+        }
+
+        document.addEventListener('keydown', (event) => {
+            moveCar(event.key === 'ArrowLeft' ? 'left' : event.key === 'ArrowRight' ? 'right' : '');
+        });
+
+        document.getElementById('rightButton').addEventListener('click', () => {
+            moveCar('right');
+        });
+
+        document.getElementById('leftButton').addEventListener('click', () => {
+            moveCar('left');
+        });
+
+        function gameOver() {
+            alert('Game Over');
+            window.location.href = 'home';
+        }
+
+        function moveVehicles() {
+            document.querySelectorAll('.obstacle').forEach(car => {
+                const carTop = parseInt(car.style.top.replace('px', '')) || 0;
+                car.style.top = `${carTop + 2}px`;
+                if (checkCollision(playerCar, car) && !isInvincible) {
+                    playerDamage += 1;
+                    triggerDamageEffect();
+                    updateDamageLabel();
+                    activateInvincibility();
+                    car.remove();
+                } else if (carTop > roadHeight) {
+                    car.remove();
+                }
+            });
+
+            document.querySelectorAll('.coin').forEach(coin => {
+                const coinTop = parseInt(coin.style.top.replace('px', '')) || 0;
+                coin.style.top = `${coinTop + 1.5}px`;
+                if (checkCollision(playerCar, coin)) {
+                    coin.remove();
+                    playerScore += 1; // ✅ ניקוד
+                    updateScoreLabel(); // ✅ הצגת ניקוד
+                }
+                if (coinTop > roadHeight) {
+                    coin.remove();
+                }
+            });
+        }
+
+        let lastSpawn = 0;
+        let lastCoinSpawn = 0;
+
+        function render() {
+            if (playerDamage >= 3) return gameOver();
+            requestAnimationFrame(() => {
+                const now = Date.now();
+
+                if (now - lastSpawn >= 1000) {
+                    lastSpawn = now;
+                    const laneIndex = Math.floor(Math.random() * 3);
+                    Math.random() > 0.5 ? spawnCar(laneIndex) : spawnMotorcycle(laneIndex);
+                }
+
+                if (now - lastCoinSpawn >= 1500) {
+                    lastCoinSpawn = now;
+                    spawnCoin();
+                }
+
+                moveVehicles();
+                render();
+            });
+        }
+
+        render();
+    </script>
+</body>
+</html>

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zombie Shooter - Game</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
+
+    body {
+      margin: 0;
+      font-family: 'Varela Round', sans-serif;
+      background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
+      color: white;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .particle {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      background-color: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      animation: moveParticles 3s linear infinite;
+    }
+
+    @keyframes moveParticles {
+      0% { transform: translateY(0) translateX(0); }
+      100% { transform: translateY(300px) translateX(200px); }
+    }
+
+    .button-container {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+    }
+
+    button {
+      font-size: 22px;
+      padding: 15px 30px;
+      background: linear-gradient(135deg, #28a745, #218838);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 255, 100, 0.4);
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #34ce57, #1e7e34);
+      transform: scale(1.05);
+    }
+
+    .game-screen {
+      text-align: center;
+      font-size: 36px;
+      margin-top: 100px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+
+    #lives, #zombieCount, #score, #timer {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      font-size: 20px;
+      padding: 8px 16px;
+      background-color: rgba(0, 0, 0, 0.5);
+      border: 2px solid #ffffff33;
+      border-radius: 10px;
+      backdrop-filter: blur(4px);
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    #zombieCount { top: 50px; }
+    #score { top: 90px; }
+    #timer { top: 130px; }
+
+    .player {
+      position: fixed;
+      width: 50px;
+      height: 70px;
+      background: linear-gradient(to bottom, #ff4444, #cc0000);
+      border-radius: 10px;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 10px #ff0000aa;
+    }
+
+    .player-line {
+      position: fixed;
+      width: 4px;
+      height: 100%;
+      background: rgba(255, 0, 0, 0.4);
+      bottom: 0;
+    }
+
+    .zombie, .skeleton, .goblin {
+      position: fixed;
+      width: 50px;
+      height: 70px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #00ff00aa;
+    }
+
+    .zombie {
+      background: linear-gradient(to bottom, #44ff44, #006600);
+    }
+
+    .skeleton {
+      background: linear-gradient(to bottom, #cccccc, #888888);
+    }
+
+    .goblin {
+      background: linear-gradient(to bottom, #ff6600, #cc3300);
+    }
+
+    .bullet {
+      position: fixed;
+      width: 10px;
+      height: 20px;
+      background: linear-gradient(to top, #ffff00, #ffaa00);
+      border-radius: 5px;
+      box-shadow: 0 0 6px #ff0;
+    }
+
+    .game-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('static/background-image.jpg') no-repeat center center fixed;
+      background-size: cover;
+      z-index: -1;
+    }
+
+    .fog {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+  <div class="button-container">
+    <button id="zombie-shooter">Zombie Shooter</button>
+    <button id="home-btn" onclick="window.location.href='http://localhost:5000/home'">Home</button>
+  </div>
+
+  <div class="game-screen" id="game-screen">
+    <p>Welcome to Zombie Shooter!</p>
+  </div>
+
+  <div id="lives">Lives: 20</div>
+  <div id="zombieCount">Zombies Hit: 0</div>
+  <div id="score">Score: 0</div>
+  <div id="timer">Time: 30</div>
+
+  <audio id="shoot-sound" src="static/aaj_0022_Lazer_Gun_02_SFX.mp3"></audio>
+  <audio id="hit-sound" src="static/sounds/zombie-hit.mp3"></audio>
+  <audio id="player-hit-sound" src="static/sounds/player-hit.mp3"></audio>
+
+  <audio id="backgroundMusic" loop>
+    <source src="static/retro-game-arcade-236133.mp3" type="audio/mpeg">
+  </audio>
+
+  <audio id="gameMusic" loop>
+    <source src="static/alex-productions-epic-cinematic-trailer-elite(chosic.com).mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const zombieShooterBtn = document.getElementById("zombie-shooter");
+    const homeBtn = document.getElementById("home-btn");
+    const gameScreen = document.getElementById("game-screen");
+    const livesLabel = document.getElementById("lives");
+    const zombieCountLabel = document.getElementById("zombieCount");
+    const scoreLabel = document.getElementById("score");
+    const timerLabel = document.getElementById("timer");
+
+    const shootSound = document.getElementById("shoot-sound");
+    const hitSound = document.getElementById("hit-sound");
+    const playerHitSound = document.getElementById("player-hit-sound");
+
+    const backgroundMusic = document.getElementById("backgroundMusic");
+    const gameMusic = document.getElementById("gameMusic");
+
+    window.onload = () => {
+      backgroundMusic.volume = 0.5;
+      backgroundMusic.play();
+      createParticles();
+    };
+
+    const player = document.createElement('div');
+    player.classList.add('player');
+    document.body.appendChild(player);
+
+    const playerLine = document.createElement('div');
+    playerLine.classList.add('player-line');
+    document.body.appendChild(playerLine);
+
+    let playerX = window.innerWidth / 2 - 25;
+    let playerY = window.innerHeight - 75;
+    let playerLives = 20;
+    let playerSpeed = 5;
+
+    let monsters = [];
+    let bullets = [];
+    let zombieCount = 0;
+    let score = 0;
+    let gameTime = 30;
+    let monsterInterval = 2000;
+
+    zombieShooterBtn.addEventListener("click", function () {
+      zombieShooterBtn.style.display = "none";
+      homeBtn.style.display = "none";
+      gameScreen.style.display = "none";
+      livesLabel.style.display = "block";
+      zombieCountLabel.style.display = "block";
+      scoreLabel.style.display = "block";
+      timerLabel.style.display = "block";
+
+      backgroundMusic.pause();
+      gameMusic.currentTime = 0;
+      gameMusic.volume = 0.6;
+      gameMusic.play();
+
+      startGame();
+    });
+
+    function startGame() {
+      const gameBackground = document.createElement('div');
+      gameBackground.classList.add('game-background');
+      document.body.appendChild(gameBackground);
+
+      const fogEffect = document.createElement('div');
+      fogEffect.classList.add('fog');
+      document.body.appendChild(fogEffect);
+
+      window.addEventListener('mousemove', (e) => {
+        playerX = e.clientX - 25;
+        player.style.left = playerX + 'px';
+        playerLine.style.left = playerX + 'px';
+      });
+
+      setInterval(createMonster, monsterInterval);
+      setInterval(shootBullet, 1000);
+      setInterval(updateMonsters, 100);
+      setInterval(updateBullets, 50);
+      setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+      gameTime--;
+      timerLabel.innerHTML = `Time: ${gameTime}`;
+      if (gameTime <= 0) {
+        gameTime = 30;
+        monsterInterval = Math.max(500, monsterInterval - 100);
+      }
+    }
+
+    function createMonster() {
+      const monsterType = Math.random() < 0.33 ? 'zombie' : (Math.random() < 0.5 ? 'skeleton' : 'goblin');
+      const monster = document.createElement('div');
+      monster.classList.add(monsterType);
+      monster.style.top = "0px";
+      monster.style.left = Math.random() * window.innerWidth + 'px';
+      document.body.appendChild(monster);
+      const speed = Math.round((Math.random() + 0.25) * 15)
+      monsters.push({ element: monster, type: monsterType, speed });
+    }
+
+    function createParticles() {
+      for (let i = 0; i < 100; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particle.style.left = Math.random() * window.innerWidth + 'px';
+        particle.style.top = Math.random() * window.innerHeight + 'px';
+        document.body.appendChild(particle);
+      }
+    }
+
+    function shootBullet() {
+      const bullet = document.createElement('div');
+      bullet.classList.add('bullet');
+      bullet.style.left = playerX + 'px';
+      bullet.style.top = playerY - 20 + 'px';
+      document.body.appendChild(bullet);
+      bullets.push(bullet);
+      shootSound.play();
+    }
+
+    function updateMonsters() {
+      const monsterPositions = monsters.map(monster => parseInt(monster.element.style.top));
+      monsters.forEach((monster, index) => {
+        monster.element.style.top = monsterPositions[index] + monster.speed + 'px';
+        if (parseInt(monster.element.style.top) > window.innerHeight - 100) {
+          document.body.removeChild(monster.element);
+          monsters.splice(index, 1);
+          playerLives--;
+          livesLabel.innerHTML = `Lives: ${playerLives}`;
+          score -= 5;
+          scoreLabel.innerHTML = `Score: ${score}`;
+          playerHitSound.play();
+        }
+      });
+    }
+
+    function updateBullets() {
+      const bulletPositions = bullets.map(bullet => parseInt(bullet.style.top));
+      bullets.forEach((bullet, index) => {
+        bullet.style.top = bulletPositions[index] - 10 + 'px';
+
+        monsters.forEach((monster, mIndex) => {
+          if (isCollision(bullet, monster.element)) {
+            score += 10;
+            scoreLabel.innerHTML = `Score: ${score}`;
+            zombieCount++;
+            zombieCountLabel.innerHTML = `Zombies Hit: ${zombieCount}`;
+            hitSound.play();
+            document.body.removeChild(bullet);
+            bullets.splice(index, 1);
+            document.body.removeChild(monster.element);
+            monsters.splice(mIndex, 1);
+          }
+        });
+
+        if (parseInt(bullet.style.bottom) > window.innerHeight) {
+          document.body.removeChild(bullet);
+          bullets.splice(index, 1);
+        }
+      });
+    }
+
+    function isCollision(bullet, monster) {
+      const bulletRect = bullet.getBoundingClientRect();
+      const monsterRect = monster.getBoundingClientRect();
+      return !(bulletRect.right < monsterRect.left ||
+               bulletRect.left > monsterRect.right ||
+               bulletRect.bottom < monsterRect.top ||
+               bulletRect.top > monsterRect.bottom);
+    }
+  </script>
+</body>
+</html>
