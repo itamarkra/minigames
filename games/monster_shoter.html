@@ -310,6 +310,10 @@
           livesLabel.innerHTML = `Lives: ${playerLives}`;
           scoreLabel.innerHTML = `Score: ${score}`;
           playerHitSound.play();
+          if (playerLives < 1) {
+            alert("Game Over!");
+            location.reload();
+          }
         }
       });
     }
