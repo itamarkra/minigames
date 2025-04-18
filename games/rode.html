@@ -71,6 +71,14 @@
             border-radius: 5px;
         }
 
+        .hole {
+            width: 50px;
+            height: 60px;
+            background-color: black;
+            position: absolute;
+            border-radius: 3px;
+        }
+
         #damageLabel {
             position: fixed;
             top: 20px;
@@ -153,6 +161,10 @@
     </div>
 
     <script>
+        const COIN_SPEED = 1.5;
+        const HOLE_SPEED = 1;
+        const CAR_SPEED = 2;
+        const MOTORCYCLE_SPEED = 4;
         const playerCar = document.getElementById('playerCar');
         const damageLabel = document.getElementById('damageLabel');
         const scoreLabel = document.getElementById('scoreLabel'); // ✅
@@ -180,6 +192,7 @@
             car.classList.add('car', 'obstacle');
             car.style.left = `${lane.left}%`;
             car.style.top = '-100px';
+            car.speed = CAR_SPEED;
             road.appendChild(car);
         }
 
@@ -189,16 +202,37 @@
             motorcycle.classList.add('motorcycle', 'obstacle');
             motorcycle.style.left = `${lane.left + 5}%`;
             motorcycle.style.top = '-60px';
+            motorcycle.speed = MOTORCYCLE_SPEED;
             road.appendChild(motorcycle);
         }
+
+        function spawnHole(laneIndex) {
+            const lane = lanes[laneIndex];
+            const hole = document.createElement('div');
+            hole.classList.add('hole', 'obstacle');
+            hole.style.left = `${lane.left}%`;
+            hole.style.top = '-60px'; // תלוי בגובה החור
+
+            // 🎲 רדיוס רנדומלי בין 2 ל-10 פיקסלים
+            const randomRadius = Math.floor(Math.random() * 9) + 2;
+            hole.style.borderRadius = `${randomRadius}px`;
+
+            hole.speed = HOLE_SPEED;
+            road.appendChild(hole);
+        }
+
 
         function spawnCoin() {
             const coin = document.createElement('div');
             coin.classList.add('coin');
             const laneIndex = Math.floor(Math.random() * 3);
             coin.style.left = `${lanes[laneIndex].left + 10}%`;
+            coin.style.top = "-60px";
+            coin.speed = COIN_SPEED;
             road.appendChild(coin);
         }
+
+        
 
         function checkCollision(a, b) {
             const rect1 = a.getBoundingClientRect();
@@ -267,23 +301,26 @@
         }
 
         function moveVehicles() {
-            document.querySelectorAll('.obstacle').forEach(car => {
-                const carTop = parseInt(car.style.top.replace('px', '')) || 0;
-                car.style.top = `${carTop + 2}px`;
-                if (checkCollision(playerCar, car) && !isInvincible) {
+            document.querySelectorAll('.obstacle').forEach(obstacle => {
+                const obstacleTop = moveElement(obstacle);
+                if (checkCollision(playerCar, obstacle) && !isInvincible) {
                     playerDamage += 1;
                     triggerDamageEffect();
                     updateDamageLabel();
                     activateInvincibility();
-                    car.remove();
-                } else if (carTop > roadHeight) {
-                    car.remove();
+                    obstacle.remove();
+                } else if (obstacleTop > roadHeight) {
+                    obstacle.remove();
                 }
             });
 
+
+            
+        }
+
+        function moveCoins() {
             document.querySelectorAll('.coin').forEach(coin => {
-                const coinTop = parseInt(coin.style.top.replace('px', '')) || 0;
-                coin.style.top = `${coinTop + 1.5}px`;
+                const coinTop = moveElement(coin);
                 if (checkCollision(playerCar, coin)) {
                     coin.remove();
                     playerScore += 1; // ✅ ניקוד
@@ -295,8 +332,15 @@
             });
         }
 
+        function moveElement(element) {
+            const currentTop = parseFloat(element.style.top);
+            element.style.top = `${currentTop + (element.speed ? element.speed : 2)}px`; // איטי יותר ממכונית
+            return currentTop;
+        }
+
         let lastSpawn = 0;
         let lastCoinSpawn = 0;
+        let lastHoleSpawn = 0;
 
         function render() {
             if (playerDamage >= 3) return gameOver();
@@ -314,7 +358,15 @@
                     spawnCoin();
                 }
 
+                if (now - lastHoleSpawn >= 5000) {
+                    lastHoleSpawn = now;
+                    const laneIndex = Math.floor(Math.random() * 3);
+                    spawnHole(laneIndex);
+                }
+
+
                 moveVehicles();
+                moveCoins();
                 render();
             });
         }
